@@ -1,0 +1,68 @@
+SELECT c.id_client, COALESCE(CONCAT(c.fname,' ',c.lname), c.company_name) AS cliente,
+       COUNT(o.id_order) AS total_pedidos
+FROM clients c
+LEFT JOIN orders o ON o.id_client = c.id_client
+GROUP BY c.id_client
+ORDER BY total_pedidos DESC;
+
+-- 2: Algum vendedor também é fornecedor?
+SELECT s.seller_name, sp.supplier_name
+FROM sellers s
+JOIN suppliers sp ON s.seller_tax_id = sp.supplier_tax_id;
+
+-- 3: Relação de produtos, fornecedores e estoque
+SELECT p.name AS produto, suppl.supplier_name, sp.supply_price, p.stock,
+       (p.stock * sp.supply_price) AS valor_total_estoque_fornecedor
+FROM products p
+JOIN product_suppliers sp ON p.id_product=sp.id_product
+JOIN suppliers suppl ON sp.id_supplier=suppl.id_supplier;
+
+-- 4: Relação de nomes dos fornecedores e nomes dos produtos
+SELECT suppl.supplier_name, p.name AS produto
+FROM suppliers suppl
+JOIN product_suppliers ps ON ps.id_supplier = suppl.id_supplier
+JOIN products p ON p.id_product = ps.id_product
+ORDER BY suppl.supplier_name;
+
+-- 5: Valor total de cada pedido
+SELECT o.id_order, COALESCE(SUM(oi.quantity*oi.unit_price),0)+o.shipping_cost AS total
+FROM orders o
+JOIN order_items oi ON oi.id_order=o.id_order
+GROUP BY o.id_order
+ORDER BY total DESC;
+
+-- 6: Clientes com mais de 1 pedido
+SELECT c.id_client, COALESCE(CONCAT(c.fname,' ',c.lname),c.company_name) AS cliente,
+       COUNT(o.id_order) AS total_pedidos
+FROM clients c
+JOIN orders o ON o.id_client=c.id_client
+GROUP BY c.id_client
+HAVING COUNT(o.id_order) > 1;
+
+-- 7: Pedidos com produtos infantis
+SELECT DISTINCT o.id_order, o.order_date, c.client_type
+FROM orders o
+JOIN order_items oi ON o.id_order=oi.id_order
+JOIN products p ON oi.id_product=p.id_product
+JOIN clients c ON c.id_client=o.id_client
+WHERE p.classification_kids=TRUE;
+
+-- 8: Vendedores e seus produtos
+SELECT s.seller_name, p.name, ps.seller_stock, ps.price_at_seller
+FROM sellers s
+JOIN product_sellers ps ON s.id_seller=ps.id_seller
+JOIN products p ON p.id_product=ps.id_product;
+
+-- 9: Clientes que gastaram mais de 500
+SELECT c.id_client, COALESCE(CONCAT(c.fname,' ',c.lname),c.company_name) AS cliente,
+       SUM(oi.quantity*oi.unit_price)+SUM(o.shipping_cost) AS total_gasto
+FROM clients c
+JOIN orders o ON o.id_client=c.id_client
+JOIN order_items oi ON oi.id_order=o.id_order
+GROUP BY c.id_client
+HAVING total_gasto > 500;
+
+-- 10: Produtos com pouco estoque (<10)
+SELECT id_product, name, stock FROM products
+WHERE stock < 10
+ORDER BY stock ASC;
