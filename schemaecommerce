@@ -1,0 +1,171 @@
+DROP DATABASE IF EXISTS ecommerce;
+CREATE DATABASE ecommerce;
+USE ecommerce;
+
+-- CLIENTS
+CREATE TABLE clients (
+    id_client INT AUTO_INCREMENT PRIMARY KEY,
+    client_type ENUM('PF','PJ') NOT NULL,
+    fname VARCHAR(50),
+    mname VARCHAR(20),
+    lname VARCHAR(50),
+    cpf CHAR(11),
+    cnpj CHAR(14),
+    company_name VARCHAR(100),
+    address VARCHAR(200),
+    email VARCHAR(100),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (cpf),
+    UNIQUE (cnpj),
+    CONSTRAINT chk_client_pf_pj CHECK (
+        (client_type = 'PF' AND cpf IS NOT NULL AND cnpj IS NULL) OR
+        (client_type = 'PJ' AND cnpj IS NOT NULL AND cpf IS NULL)
+    )
+) ENGINE=InnoDB;
+
+-- PRODUCTS
+CREATE TABLE products (
+    id_product INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    classification_kids BOOLEAN DEFAULT FALSE,
+    category ENUM('Eletrônico','Vestimenta','Brinquedo','Alimentos','Outros') NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    stock INT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- SUPPLIERS
+CREATE TABLE suppliers (
+    id_supplier INT AUTO_INCREMENT PRIMARY KEY,
+    supplier_name VARCHAR(150) NOT NULL,
+    supplier_tax_id VARCHAR(30),
+    contact_email VARCHAR(100),
+    phone VARCHAR(30),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (supplier_tax_id)
+) ENGINE=InnoDB;
+
+-- SELLERS
+CREATE TABLE sellers (
+    id_seller INT AUTO_INCREMENT PRIMARY KEY,
+    seller_name VARCHAR(150) NOT NULL,
+    seller_tax_id VARCHAR(30),
+    contact_email VARCHAR(100),
+    phone VARCHAR(30),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (seller_tax_id)
+) ENGINE=InnoDB;
+
+-- RELAÇÃO Produto <-> Fornecedor
+CREATE TABLE product_suppliers (
+    id_supplier INT NOT NULL,
+    id_product INT NOT NULL,
+    supply_price DECIMAL(10,2) NOT NULL,
+    lead_time_days INT DEFAULT 7,
+    PRIMARY KEY (id_supplier, id_product),
+    CONSTRAINT fk_ps_supplier FOREIGN KEY (id_supplier) REFERENCES suppliers(id_supplier),
+    CONSTRAINT fk_ps_product FOREIGN KEY (id_product) REFERENCES products(id_product)
+) ENGINE=InnoDB;
+
+-- RELAÇÃO Produto <-> Vendedor
+CREATE TABLE product_sellers (
+    id_seller INT NOT NULL,
+    id_product INT NOT NULL,
+    seller_stock INT NOT NULL DEFAULT 0,
+    price_at_seller DECIMAL(10,2) DEFAULT NULL,
+    PRIMARY KEY (id_seller, id_product),
+    CONSTRAINT fk_prod_seller_seller FOREIGN KEY (id_seller) REFERENCES sellers(id_seller),
+    CONSTRAINT fk_prod_seller_product FOREIGN KEY (id_product) REFERENCES products(id_product)
+) ENGINE=InnoDB;
+
+-- PAYMENTS
+CREATE TABLE payments (
+    id_payment INT AUTO_INCREMENT PRIMARY KEY,
+    id_client INT NOT NULL,
+    method ENUM('Boleto','Cartão','Pix','Dinheiro','Transferência') NOT NULL,
+    details VARCHAR(255),
+    credit_limit DECIMAL(12,2) DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payment_client FOREIGN KEY (id_client) REFERENCES clients(id_client)
+) ENGINE=InnoDB;
+
+-- ORDERS
+CREATE TABLE orders (
+    id_order INT AUTO_INCREMENT PRIMARY KEY,
+    id_client INT NOT NULL,
+    id_seller INT NULL,
+    order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    order_status ENUM('Cancelado','Confirmado','Em processamento','Enviado','Entregue') NOT NULL DEFAULT 'Confirmado',
+    shipping_cost DECIMAL(10,2) DEFAULT 10.00,
+    payment_id INT NULL,
+    notes TEXT,
+    CONSTRAINT fk_order_client FOREIGN KEY (id_client) REFERENCES clients(id_client),
+    CONSTRAINT fk_order_seller FOREIGN KEY (id_seller) REFERENCES sellers(id_seller),
+    CONSTRAINT fk_order_payment FOREIGN KEY (payment_id) REFERENCES payments(id_payment)
+) ENGINE=InnoDB;
+
+-- DELIVERIES
+CREATE TABLE deliveries (
+    id_delivery INT AUTO_INCREMENT PRIMARY KEY,
+    id_order INT NOT NULL,
+    tracking_code VARCHAR(100),
+    delivery_status ENUM('Pendente','Em trânsito','Entregue','Extraviado','Devolvido') DEFAULT 'Pendente',
+    shipped_date DATETIME,
+    delivered_date DATETIME,
+    address VARCHAR(300),
+    CONSTRAINT fk_delivery_order FOREIGN KEY (id_order) REFERENCES orders(id_order) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ORDER_ITEMS
+CREATE TABLE order_items (
+    id_order INT NOT NULL,
+    id_product INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unit_price DECIMAL(10,2) NOT NULL,
+    PRIMARY KEY (id_order, id_product),
+    CONSTRAINT fk_oi_order FOREIGN KEY (id_order) REFERENCES orders(id_order) ON DELETE CASCADE,
+    CONSTRAINT fk_oi_product FOREIGN KEY (id_product) REFERENCES products(id_product)
+) ENGINE=InnoDB;
+
+-- DADOS DE TESTE
+INSERT INTO clients (client_type, fname, lname, cpf, address, email)
+VALUES
+('PF','João','Silva','12345678901','Rua A, 100, Lisboa','joao@email.com'),
+('PF','Maria','Oliveira','98765432100','Av. B, Porto','maria@email.com');
+
+INSERT INTO clients (client_type, company_name, cnpj, address, email)
+VALUES
+('PJ','LojaTech Lda','11222333000199','Zona Industrial, 10','contato@lojatech.pt'),
+('PJ','BrinqImport SA','22333444000177','Rua do Comércio, 20','vendas@brinq.com');
+
+INSERT INTO products (name, classification_kids, category, description, price, stock)
+VALUES
+('Tablet X1', FALSE, 'Eletrônico', 'Tablet 10"', 499.90, 20),
+('Camiseta Azul', FALSE, 'Vestimenta', 'Camiseta algodão', 19.90, 150),
+('Boneca Baby', TRUE, 'Brinquedo', 'Boneca macia', 29.50, 60),
+('Barra de Cereal', FALSE, 'Alimentos', 'Cereal 30g', 1.50, 1000);
+
+INSERT INTO suppliers (supplier_name, supplier_tax_id, contact_email, phone)
+VALUES
+('SupplyCo','55566677700011','comercial@supplyco.com','+351912345678'),
+('GeralDistrib','88899900011122','contact@geraldistrib.pt','+351923456789');
+
+INSERT INTO sellers (seller_name, seller_tax_id, contact_email, phone)
+VALUES
+('VendeTudo','77788899900033','vendas@vendetudo.com','+351911234567'),
+('SupplyCo','55566677700011','seller@supplyco.com','+351912345678');
+
+INSERT INTO product_suppliers VALUES (1,1,300.00,10),(2,3,10.00,7),(1,2,8.00,5);
+INSERT INTO product_sellers VALUES (1,2,50,24.90),(2,1,10,459.90);
+
+INSERT INTO payments (id_client,method,details,credit_limit)
+VALUES (1,'Cartão','VISA ****1234',3000),(1,'Pix','pix@joao',NULL);
+
+INSERT INTO orders (id_client,id_seller,order_date,order_status,shipping_cost,payment_id,notes)
+VALUES (1,2,'2025-09-10 10:00:00','Entregue',5.00,1,'Entrega rápida');
+
+INSERT INTO order_items VALUES (1,1,1,459.90),(1,4,10,1.50);
+
+INSERT INTO deliveries (id_order,tracking_code,delivery_status,shipped_date,delivered_date,address)
+VALUES (1,'TRACK123','Entregue','2025-09-11','2025-09-12','Rua A, 100, Lisboa');
